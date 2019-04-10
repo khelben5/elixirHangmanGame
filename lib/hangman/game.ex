@@ -14,25 +14,29 @@ defmodule Hangman.Game do
     Dictionary.random_word() |> new_game()
   end
 
-  def make_move(game = %{game_state: state}, _) when state in [:won, :lost] do
-    {game, tully(game)}
+  def make_move(game = %{game_state: state}, _) when state in [:won, :lost], do: game
+  def make_move(game, guess), do: accept_move(game, guess, MapSet.member?(game.used, guess))
+
+  def tally(game) do
+    %{
+      game_state: game.game_state,
+      turns_left: game.turns_left,
+      letters: game.letters |> reveal_guessed(game.used)
+    }
   end
 
-  def make_move(game, guess) do
-    game = accept_move(game, guess, MapSet.member?(game.used, guess))
-    {game, tully(game)}
-  end
+  #######################
 
-  def accept_move(game, _, _already_guessed = true) do
+  defp accept_move(game, _, _already_guessed = true) do
     Map.put(game, :game_state, :already_used)
   end
 
-  def accept_move(game, guess, _already_guessed) do
+  defp accept_move(game, guess, _already_guessed) do
     Map.put(game, :used, MapSet.put(game.used, guess))
     |> score_guess(Enum.member?(game.letters, guess))
   end
 
-  def score_guess(game, _good_guess = true) do
+  defp score_guess(game, _good_guess = true) do
     new_state =
       MapSet.new(game.letters)
       |> MapSet.subset?(game.used)
@@ -41,18 +45,22 @@ defmodule Hangman.Game do
     Map.put(game, :game_state, new_state)
   end
 
-  def score_guess(game = %{turns_left: 1}, _not_good_guess) do
+  defp score_guess(game = %{turns_left: 1}, _not_good_guess) do
     Map.put(game, :game_state, :lost)
   end
 
-  def score_guess(game = %{turns_left: turns_left}, _not_good_guess) do
+  defp score_guess(game = %{turns_left: turns_left}, _not_good_guess) do
     %{game | game_state: :bad_guess, turns_left: turns_left - 1}
   end
 
-  def maybe_won(true), do: :won
-  def maybe_won(_), do: :good_guess
+  defp maybe_won(true), do: :won
+  defp maybe_won(_), do: :good_guess
 
-  def tully(_) do
-    123
+  defp reveal_guessed(game_letters, used_letters) do
+    game_letters
+    |> Enum.map(fn letter -> reveal_letter(letter, MapSet.member?(used_letters, letter)) end)
   end
+
+  defp reveal_letter(letter, _has_been_used = true), do: letter
+  defp reveal_letter(_letter, _not_has_been_used), do: "_"
 end
